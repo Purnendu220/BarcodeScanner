@@ -1,5 +1,5 @@
 <resources>
-    <string name="shortcut_history">پیشینه</string>
+    <string name="app_name">ABPL Scanner</string>
 
     <!--Delete dialog-->
     <string name="dialog_delete_positive_button">هذف</string>

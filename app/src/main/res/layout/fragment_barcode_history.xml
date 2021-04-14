@@ -29,6 +29,7 @@
             app:tabIndicatorHeight="@dimen/tab_layout_indicator_height"
             android:background="@color/tab_layout_background_color"
             app:tabMode="fixed"
+            android:visibility="gone"
             />
     </com.google.android.material.appbar.AppBarLayout>
 

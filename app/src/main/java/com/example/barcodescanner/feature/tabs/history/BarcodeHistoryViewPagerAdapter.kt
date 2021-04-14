@@ -10,7 +10,7 @@ class BarcodeHistoryViewPagerAdapter(context: Context, fragmentManager: Fragment
     private val pageTitles = context.resources.getStringArray(R.array.fragment_barcode_history_tab_titles)
 
     override fun getCount(): Int {
-        return pageTitles.size
+        return 1
     }
 
     override fun getPageTitle(position: Int): CharSequence? {

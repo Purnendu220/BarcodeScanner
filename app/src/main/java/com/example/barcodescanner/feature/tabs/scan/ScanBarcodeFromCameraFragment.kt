@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.budiyev.android.codescanner.*
@@ -18,9 +19,15 @@ import com.example.barcodescanner.di.*
 import com.example.barcodescanner.extension.*
 import com.example.barcodescanner.feature.barcode.BarcodeActivity
 import com.example.barcodescanner.feature.common.dialog.ConfirmBarcodeDialogFragment
+import com.example.barcodescanner.feature.tabs.BottomTabsActivity
 import com.example.barcodescanner.feature.tabs.scan.file.ScanBarcodeFromFileActivity
 import com.example.barcodescanner.model.Barcode
+import com.example.barcodescanner.model.Empdata
+import com.example.barcodescanner.model.RequestModel
+import com.example.barcodescanner.restapi.RetrofitClient
+import com.example.barcodescanner.usecase.Logger
 import com.example.barcodescanner.usecase.SupportedBarcodeFormats
+import com.example.barcodescanner.usecase.Utils
 import com.example.barcodescanner.usecase.save
 import com.google.zxing.Result
 import com.google.zxing.ResultMetadataType
@@ -30,6 +37,9 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.fragment_scan_barcode_from_camera.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import java.util.concurrent.TimeUnit
 
 class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.Listener {
@@ -40,6 +50,7 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
         private const val ZXING_SCAN_INTENT_ACTION = "com.google.zxing.client.android.SCAN"
         private const val CONTINUOUS_SCANNING_PREVIEW_DELAY = 500L
     }
+    public var action : String? = null;
 
     private val vibrationPattern = arrayOf<Long>(0, 350).toLongArray()
     private val disposable = CompositeDisposable()
@@ -48,6 +59,7 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
     private lateinit var codeScanner: CodeScanner
     private var toast: Toast? = null
     private var lastResult: Barcode? = null
+    var alertDialog:AlertDialog? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_scan_barcode_from_camera, container, false)
@@ -55,6 +67,9 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        action =   (activity as BottomTabsActivity).action;
+
         supportEdgeToEdge()
         setDarkStatusBar()
         initScanner()
@@ -64,6 +79,39 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
         handleDecreaseZoomClicked()
         handleIncreaseZoomClicked()
         requestPermissions()
+    }
+    private fun callApi(barcode:String){
+        val deviceId = activity?.let { Utils.getDeviceId(it) };
+        CoroutineScope(IO).launch {
+            try{
+               val request = deviceId?.let { action?.let { it1 -> RequestModel(barcode, it, it1) } };
+                val call = request?.let { RetrofitClient.apiInterface.postAttendence(it) };
+                val resp= call?.execute()
+
+                if( resp?.body()?.get(0)?.empdata!=null){
+
+                    CoroutineScope(Dispatchers.Main).launch{
+                        showDialog("Scanned successfully","Congrats", resp?.body()?.get(0)?.empdata!!)
+
+                    }
+
+
+                }
+
+                else{
+                    CoroutineScope(Dispatchers.Main).launch{
+                        showErrorDialog("Employee data not found please scan proper data","Error")
+
+                    }
+                }
+            }catch (e:Exception){
+                Logger.log(e.fillInStackTrace())
+
+            }
+
+
+        }
+
     }
 
     override fun onResume() {
@@ -269,20 +317,25 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
     }
 
     private fun saveScannedBarcode(barcode: Barcode) {
-        barcodeDatabase.save(barcode, settings.doNotSaveDuplicates)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(
-                { id ->
-                    lastResult = barcode
-                    when (settings.continuousScanning) {
-                        true -> restartPreviewWithDelay(true)
-                        else -> navigateToBarcodeScreen(barcode.copy(id = id))
-                    }
-                },
-                ::showError
-            )
-            .addTo(disposable)
+            barcodeDatabase.save(barcode, settings.doNotSaveDuplicates)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(
+                            { id ->
+                                lastResult = barcode
+                                when (settings.continuousScanning) {
+                                    true -> restartPreviewWithDelay(true)
+                                    else -> navigateToBarcodeScreen(barcode.copy(id = id))
+                                }
+                            },
+                            ::showError
+                    )
+                    .addTo(disposable)
+
+
+
+
+
     }
 
     private fun restartPreviewWithDelay(showMessage: Boolean) {
@@ -333,7 +386,16 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
     }
 
     private fun navigateToBarcodeScreen(barcode: Barcode) {
-        BarcodeActivity.start(requireActivity(), barcode)
+        if(AadhaarUtil.isAadhaarNumberValid(barcode.text)){
+            callApi(barcode.text)
+
+        }else{
+            showErrorDialog("Scanned data : "+barcode.text+" \n Please scan properly","Invalid Scan")
+
+        }
+
+
+       // BarcodeActivity.start(requireActivity(), barcode)
     }
 
     private fun finishWithResult(result: Result) {
@@ -373,4 +435,69 @@ class ScanBarcodeFromCameraFragment : Fragment(), ConfirmBarcodeDialogFragment.L
             finish()
         }
     }
+    fun showDialog(message:String,title:String,empdata:Empdata){
+
+         var messagenew = message+" \n Mem Id : ${empdata.MEM_ID} \n Mem Name : ${empdata.MEM_NAME} \n Area Name : ${empdata.AREA_NAME} \n Mem Age : ${empdata.MEM_AGE} \n In Time : ${empdata.IN_TIME} \n Out Time : ${empdata.OUTTIME}"
+        val builder = AlertDialog.Builder(context!!)
+        builder.setTitle(title)
+        builder.setMessage(messagenew)
+        builder.setIcon(android.R.drawable.ic_dialog_alert)
+
+        builder.setPositiveButton("Ok"){dialogInterface, which ->
+//            if(activity is BottomTabsActivity){
+//                (activity as BottomTabsActivity).openScan()
+//            }
+            restartPreviewWithDelay(false)
+
+        }
+
+        // Create the AlertDialog
+        alertDialog = builder.create()
+        // Set other dialog properties
+        alertDialog!!.setCancelable(false)
+        alertDialog!!.show()
+
+    }
+    fun showDialog(message:String,title:String){
+        val builder = AlertDialog.Builder(context!!)
+        builder.setTitle(title)
+        builder.setMessage(message)
+        builder.setIcon(android.R.drawable.ic_dialog_alert)
+
+        builder.setPositiveButton("Ok"){dialogInterface, which ->
+//            if(activity is BottomTabsActivity){
+//                (activity as BottomTabsActivity).openScan()
+//            }
+            restartPreviewWithDelay(false)
+
+        }
+
+        // Create the AlertDialog
+        alertDialog = builder.create()
+        // Set other dialog properties
+        alertDialog!!.setCancelable(false)
+        alertDialog!!.show()
+
+    }
+    fun showErrorDialog(message:String,title:String){
+        val builder = AlertDialog.Builder(context!!)
+        builder.setTitle(title)
+        builder.setMessage(message)
+        builder.setIcon(android.R.drawable.ic_dialog_alert)
+
+        builder.setPositiveButton("ReScan"){dialogInterface, which ->
+//            if(activity is BottomTabsActivity){
+//                (activity as BottomTabsActivity).openScan()
+//            }
+            restartPreviewWithDelay(false)
+        }
+
+        // Create the AlertDialog
+        alertDialog = builder.create()
+        // Set other dialog properties
+        alertDialog!!.setCancelable(false)
+        alertDialog!!.show()
+
+    }
+
 }

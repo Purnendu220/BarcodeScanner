@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">二维码&amp; 条形码扫描器</string>
+    <string name="app_name">ABPL Scanner</string>
 
     <!--Shortcuts-->
     <string name="shortcut_scan_from_camera">扫描</string>

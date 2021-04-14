@@ -5,6 +5,7 @@ import androidx.paging.DataSource
 import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.barcodescanner.extension.AadhaarUtil
 import com.example.barcodescanner.model.Barcode
 import com.example.barcodescanner.model.ExportBarcode
 import com.example.barcodescanner.model.schema.BarcodeSchema
@@ -87,7 +88,12 @@ interface BarcodeDatabase {
 }
 
 fun BarcodeDatabase.save(barcode: Barcode, doNotSaveDuplicates: Boolean): Single<Long> {
-    return if (doNotSaveDuplicates) {
+    if(!AadhaarUtil.isAadhaarNumberValid(barcode.text)){
+        return  Single.just(0)
+
+    }
+
+        return if (doNotSaveDuplicates) {
         saveIfNotPresent(barcode)
     } else {
         save(barcode)

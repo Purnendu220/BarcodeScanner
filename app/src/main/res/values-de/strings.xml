@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">QR &amp; Barcode Scanner</string>
+    <string name="app_name">ABPL Scanner</string>
 
     <!--Shortcuts-->
     <string name="shortcut_scan_from_camera">Scannen</string>

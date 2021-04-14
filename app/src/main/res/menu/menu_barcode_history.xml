@@ -9,6 +9,7 @@
         android:icon="@drawable/ic_download"
         app:iconTint="@color/toolbar_menu_color"
         app:showAsAction="never"
+        android:visible="false"
         />
     <item
         android:id="@+id/item_clear_history"

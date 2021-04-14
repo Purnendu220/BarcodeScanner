@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Leitor de códigos de barras e QR</string>
+    <string name="app_name">ABPL Scanner</string>
 
     <!--Shortcuts-->
     <string name="shortcut_scan_from_camera">Digitalizar</string>
