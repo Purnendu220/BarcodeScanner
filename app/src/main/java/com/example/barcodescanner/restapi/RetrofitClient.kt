@@ -12,6 +12,8 @@ object RetrofitClient {
     private const val BASE_URL = "http://api.amritbottlers.com/api/CMS/"
     const val CHECK_URL = "check_device"
     const val POST_ATTENDANCE = "post_attendance"
+    const val GET_DETAILS = "get_summary"
+
     const val DEVICE_ID = "deviceid"
     const val TERM_MEDIA_TYPE = "media"
 
